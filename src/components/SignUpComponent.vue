@@ -5,17 +5,21 @@ import useNotify from "src/composables/UseNotify";
 import { useRouter } from "vue-router";
 import InputEmailComponent from "src/components/InputEmailComponent.vue";
 import InputPasswordComponent from "src/components/InputPasswordComponent.vue";
+import useSupabase from "src/boot/supabase";
 
 defineComponent({ name: "SignUpComponent" });
 
 const router = useRouter();
 const { signUp, user } = useAuthUser();
 const { notifyError, notifySuccess } = useNotify();
+const { supabase } = useSupabase();
 const form = reactive({
   name: "",
   email: "",
   password: "",
 });
+const pp = ref("");
+const username = ref("");
 
 const handleSignUp = async () => {
   try {
@@ -32,6 +36,11 @@ const handleSignUp = async () => {
     notifyError(error.message);
   }
 };
+async function create_profile(my_username, my_pp) {
+  const { data } = await supabase
+    .from("profiles")
+    .insert({ email: form.email, username: my_username, pp: my_pp });
+}
 </script>
 
 <template lang="pug">
@@ -46,11 +55,22 @@ q-form.row.justify-center(@submit.prevent="handleSignUp")
     InputEmailComponent(v-model="form.email")
     InputPasswordComponent(v-model="form.password")
     .full-width.q-pt-md.q-gutter-y-sm
-      q-btn.full-width(
+    q-input(
+      label="Nom d'utilisateur",
+      v-model="username",
+
+      )
+    q-input(
+      label="Photo de profil",
+      v-model="pp",
+
+      )
+    q-btn.full-width(
         label="Sign Up",
         color="primary",
         outline, rounded,
-        type="submit"
+        type="submit",
+        @click="create_profile(username,pp)"
       )
 </template>
 

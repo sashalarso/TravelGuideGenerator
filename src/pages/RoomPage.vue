@@ -17,6 +17,7 @@ const me = user._rawValue.email;
 onMounted(() => {
   get_messages(route.params.id);
   get_profile(me);
+  get_other_profile(route.params.id);
 });
 
 const { supabase } = useSupabase();
@@ -27,11 +28,13 @@ const senders = ref([]);
 const listen_new = supabase
   .from("messages")
   .on("INSERT", (payload) => {
-    messages.value.push({
-      message: payload.new["message"],
-      sender: payload.new["sender"],
-      created_at: payload.new["created_at"],
-    });
+    if (payload.new["room"] == route.params.id) {
+      messages.value.push({
+        message: payload.new["message"],
+        sender: payload.new["sender"],
+        created_at: payload.new["created_at"],
+      });
+    }
   })
 
   .subscribe();
@@ -71,19 +74,48 @@ async function get_profile(my_email) {
   username.value = data[0].username;
   pp.value = data[0].pp;
 }
+const other_email = ref("");
+const other_pp = ref("");
+const other_username = ref("");
+async function get_other_profile(id) {
+  const { data } = await supabase
+    .from("rooms")
+    .select("members")
+    .match({ id: id });
+  const emails = data[0].members;
+  for (let i = 0; i < emails.length; i++) {
+    if (emails[i] != user._rawValue.email) {
+      other_email.value = emails[i];
+    }
+  }
+  const test = await supabase
+    .from("profiles")
+    .select("username,pp")
+    .match({ email: other_email.value });
+  other_pp.value = test.data[0].pp;
+  other_username.value = test.data[0].username;
+}
 </script>
 
 <template lang="pug">
 q-page
 
+
   div(class="bg-brown-2 ",style="width: 500px; margin: 0 auto;").q-px-xl
     p(v-for="message in messages")
       p(v-if="me==message.sender").text-right
-        q-chat-message(:text="[message.message]",:name="username",sent,:stamp="message.created_at",:avatar="pp")
+        q-chat-message(:text="[message.message]",sent,:stamp="message.created_at",:avatar="pp")
       p(v-if="me!=message.sender",color="light-green-10")
-        q-chat-message(:text="[message.message]",:name="message.sender",:stamp="message.created_at")
+        q-chat-message(:text="[message.message]",:stamp="message.created_at")
   div(class="row justify-center")
-    q-input(v-model="my_message" rounded outlined   )
+    q-input(v-model="my_message" rounded outlined  @keyup.enter="send_message(my_message)" )
     q-btn(rounded icon="send" @click="send_message(my_message)" id="bottom")
-
+  q-page-sticky(position="top")
+    div(style=" background-color:aquamarine; width: 500px; ")
+      q-item(style=" margin-left: 185px;")
+        q-item-section(avatar)
+          q-avatar
+            img(:src="other_pp")
+        q-item-section
+          q-item-label {{ other_username }}
 </template>
