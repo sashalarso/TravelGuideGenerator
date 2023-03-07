@@ -6,6 +6,12 @@ import useAuthUser from "src/composables/UseAuthUser";
 import useSupabase from "src/boot/supabase";
 import { useRouter } from "vue-router";
 import { useRoute } from "vue-router";
+import { scroll } from "quasar";
+const {
+  getVerticalScrollPosition,
+  getScrollTarget,
+  setVerticalScrollPosition,
+} = scroll;
 
 defineComponent({
   name: "RoomPage",
@@ -29,6 +35,11 @@ const listen_new = supabase
   .from("messages")
   .on("INSERT", (payload) => {
     if (payload.new["room"] == route.params.id) {
+      const timestampz = payload.new["created_at"];
+      payload.new["created_at"] =
+        new Date(timestampz).getHours() +
+        ":" +
+        new Date(timestampz).getMinutes();
       messages.value.push({
         message: payload.new["message"],
         sender: payload.new["sender"],
@@ -40,29 +51,35 @@ const listen_new = supabase
   .subscribe();
 
 async function send_message(message) {
-  const { data } = await supabase
-    .from("messages")
-    .insert({
-      message: message,
-      sender: user._rawValue.email,
-      room: route.params.id,
-    })
-    .select();
+  if (message.replace(/\s/g, "").length) {
+    const { data } = await supabase
+      .from("messages")
+      .insert({
+        message: message,
+        sender: user._rawValue.email,
+        room: route.params.id,
+      })
+      .select();
+  }
+
+  my_message.value = "";
 }
 async function get_messages(id) {
   const { data } = await supabase
     .from("messages")
     .select("message, sender,created_at")
-    .match({ room: id });
+    .match({ room: id })
+    .order("created_at", { ascending: true });
 
   for (let i = 0; i < data.length; i++) {
     messages.value.push(data[i]);
+    const timestampz = messages.value[i].created_at;
+    messages.value[i].created_at =
+      new Date(timestampz).getHours() + ":" + new Date(timestampz).getMinutes();
   }
+  console.log(messages.value);
 }
-function scroll() {
-  const element = document.getElementById("bottom");
-  element.scrollTo(0, 500);
-}
+
 const username = ref("");
 const pp = ref("");
 async function get_profile(my_email) {
@@ -95,27 +112,36 @@ async function get_other_profile(id) {
   other_pp.value = test.data[0].pp;
   other_username.value = test.data[0].username;
 }
+const n = 0;
 </script>
 
 <template lang="pug">
-q-page
+body(style="overflow-y: hidden;")
+  q-layout(style="min-height: 400px;")
 
+    div(s class="row")
+      div(style="background-color: red; " class="col-4")
+        q-scroll-area(style="height: 100%; max-width: 600px;")
+          div(v-for="n in 100") Lorem ipsum dolor sit amet consectetur adipisicing elit. Saepe officia obcaecati, eaque distinctio culpa illum quisquam aliquid aperiam ab rem ipsa excepturi explicabo nostrum quos, nihil esse doloribus nulla? Temporibus.
 
-  div(class="bg-brown-2 ",style="width: 500px; margin: 0 auto;").q-px-xl
-    p(v-for="message in messages")
-      p(v-if="me==message.sender").text-right
-        q-chat-message(:text="[message.message]",sent,:stamp="message.created_at",:avatar="pp")
-      p(v-if="me!=message.sender",color="light-green-10")
-        q-chat-message(:text="[message.message]",:stamp="message.created_at")
-  div(class="row justify-center")
-    q-input(v-model="my_message" rounded outlined  @keyup.enter="send_message(my_message)" )
-    q-btn(rounded icon="send" @click="send_message(my_message)" id="bottom")
-  q-page-sticky(position="top")
-    div(style=" background-color:aquamarine; width: 500px; ")
-      q-item(style=" margin-left: 185px;")
-        q-item-section(avatar)
-          q-avatar
-            img(:src="other_pp")
-        q-item-section
-          q-item-label {{ other_username }}
+      div(class="col-8")
+        q-scroll-area(style="height: 600px; max-width: 100%; " ref="test" )
+          div(class="bg-brown-2  ",style="margin: 0 auto ;  background-color: aqua; min-height: 540px; ").q-px-xl
+            div(style="height: 70px;")
+            p(v-for="message in messages")
+              p(v-if="me==message.sender").text-right
+                q-chat-message(:text="[message.message]",sent,:stamp="message.created_at",:avatar="pp")
+              p(v-if="me!=message.sender",color="light-green-10")
+                q-chat-message(:text="[message.message]",:stamp="message.created_at")
+          div(class="row justify-center")
+            q-input(id="my_input" style=" width: 800px;" v-model="my_message" placeholder="Taper un message" rounded outlined  @keyup.enter="send_message(my_message)" )
+            q-btn(rounded icon="send" @click="send_message(my_message)" id="bottom")
+          q-page-sticky(position="top" style="" )
+            div(style=" background-color:aquamarine; width: 1100px; ")
+              q-item(style=" margin-left: 10px;")
+                q-item-section(avatar)
+                  q-avatar
+                    img(:src="other_pp")
+                q-item-section
+                  q-item-label {{ other_username }}
 </template>
