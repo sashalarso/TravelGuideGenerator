@@ -7,6 +7,7 @@ import useSupabase from "src/boot/supabase";
 import { useRouter } from "vue-router";
 import { useRoute } from "vue-router";
 import { scroll } from "quasar";
+import RoomsUser from "src/components/RoomsUser.vue";
 const {
   getVerticalScrollPosition,
   getScrollTarget,
@@ -24,12 +25,15 @@ onMounted(() => {
   get_messages(route.params.id);
   get_profile(me);
   get_other_profile(route.params.id);
+  get_last_seen();
 });
 
 const { supabase } = useSupabase();
 const messages = ref([]);
 const my_message = ref("");
 const senders = ref([]);
+const last_seen = ref(Date);
+const last_seen_render = ref("");
 
 const listen_new = supabase
   .from("messages")
@@ -48,6 +52,15 @@ const listen_new = supabase
     }
   })
 
+  .subscribe();
+const listen_last_seen = supabase
+  .from("profiles")
+  .on("UPDATE", (payload) => {
+    if (payload["new"].email == other_email.value) {
+      last_seen.value = new Date(payload["new"].last_seen);
+      format_date(last_seen.value);
+    }
+  })
   .subscribe();
 
 async function send_message(message) {
@@ -78,6 +91,10 @@ async function get_messages(id) {
       new Date(timestampz).getHours() + ":" + new Date(timestampz).getMinutes();
   }
   console.log(messages.value);
+  await supabase
+    .from("profiles")
+    .update({ last_seen: new Date() })
+    .match({ email: user._rawValue.email });
 }
 
 const username = ref("");
@@ -105,14 +122,42 @@ async function get_other_profile(id) {
       other_email.value = emails[i];
     }
   }
+  const my_data = await supabase
+    .from("profiles")
+    .select("last_seen")
+    .match({ email: other_email.value });
+
+  last_seen.value = new Date(my_data.data[0].last_seen);
+
+  const today = new Date();
+
+  if (last_seen.value.getDay() == today.getDay()) {
+    last_seen_render.value =
+      "en ligne aujourd'hui à " +
+      last_seen.value.getHours() +
+      ":" +
+      last_seen.value.getMinutes();
+  }
+
   const test = await supabase
     .from("profiles")
     .select("username,pp")
     .match({ email: other_email.value });
   other_pp.value = test.data[0].pp;
   other_username.value = test.data[0].username;
+  console.log(other_email.value);
 }
 const n = 0;
+async function get_last_seen() {}
+function format_date(date) {
+  const today = new Date();
+  console.log(date);
+  if (date.getDay() == today.getDay()) {
+    console.log("test");
+    last_seen_render.value =
+      "en ligne aujourd'hui à " + date.getHours() + ":" + date.getMinutes();
+  }
+}
 </script>
 
 <template lang="pug">
@@ -121,8 +166,15 @@ body(style="overflow-y: hidden;")
 
     div(s class="row")
       div(style="background-color: red; " class="col-4")
+        div(style="background-color: aqua; height: 56px;" class="row")
+          div(class="col")
+            q-avatar
+              img(:src="pp")
+          div(class="col" style="text-align: right;")
+            q-btn(icon="add")
         q-scroll-area(style="height: 100%; max-width: 600px;")
-          div(v-for="n in 100") Lorem ipsum dolor sit amet consectetur adipisicing elit. Saepe officia obcaecati, eaque distinctio culpa illum quisquam aliquid aperiam ab rem ipsa excepturi explicabo nostrum quos, nihil esse doloribus nulla? Temporibus.
+          div(style="").text-center
+            RoomsUser
 
       div(class="col-8")
         q-scroll-area(style="height: 600px; max-width: 100%; " ref="test" )
@@ -130,7 +182,7 @@ body(style="overflow-y: hidden;")
             div(style="height: 70px;")
             p(v-for="message in messages")
               p(v-if="me==message.sender").text-right
-                q-chat-message(:text="[message.message]",sent,:stamp="message.created_at",:avatar="pp")
+                q-chat-message(:text="[message.message]",sent,:stamp="message.created_at")
               p(v-if="me!=message.sender",color="light-green-10")
                 q-chat-message(:text="[message.message]",:stamp="message.created_at")
           div(class="row justify-center")
@@ -144,4 +196,5 @@ body(style="overflow-y: hidden;")
                     img(:src="other_pp")
                 q-item-section
                   q-item-label {{ other_username }}
+                  q-item-label {{ last_seen_render }}
 </template>
