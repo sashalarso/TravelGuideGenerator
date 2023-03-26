@@ -30,11 +30,7 @@ const routes = [
         path: ":catchAll(.*)*",
         component: () => import("src/pages/ErrorPageNotFound.vue"),
       },
-      {
-        name: "room",
-        path: "room/:id",
-        component: () => import("src/pages/RoomPage.vue"),
-      },
+
     ],
   },
 ];

@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^1.28.5",
     "@vueauth/supabase": "^1.0.0-alpha.20",
     "date-fns": "^2.29.3",
+    "openai": "^3.2.1",
     "quasar": "^2.6.0",
     "vue": "^3.0.0",
     "vue-router": "^4.0.0"
